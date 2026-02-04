@@ -8,8 +8,10 @@ import { Card } from '@/components/ui/card'
 
 export default function Analyze() {
   const [jobDescription, setJobDescription] = useState('')
+  const [jobUrl, setJobUrl] = useState('')
   const [resumeText, setResumeText] = useState('')
   const [loading, setLoading] = useState(false)
+  const [useUrl, setUseUrl] = useState(false)
   const router = useRouter()
 
   const handleAnalyze = async () => {
@@ -18,7 +20,11 @@ export default function Analyze() {
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobDescription, resumeText })
+        body: JSON.stringify({ 
+          jobDescription: useUrl ? jobUrl : jobDescription,
+          resumeText,
+          isUrl: useUrl
+        })
       })
       if (!response.ok) throw new Error('Failed')
       const data = await response.json()
@@ -34,27 +40,61 @@ export default function Analyze() {
       <div className="container mx-auto px-4 max-w-4xl">
         <h1 className="text-5xl font-bold mb-4 text-center">Analyze Match Quality</h1>
         <p className="text-xl text-gray-600 mb-12 text-center">
-          Compare traditional keyword matching vs capability-based analysis
+          Compare keyword matching vs capability-based analysis
         </p>
         
         <Card className="p-8 mb-6 shadow-lg">
           <h2 className="text-2xl font-bold mb-4">Job Description</h2>
-          <p className="text-sm text-gray-600 mb-4">
-            Paste the job posting. Include required technologies.
-          </p>
-          <Textarea 
-            placeholder="Example:
+          
+          {/* Toggle between URL and Text */}
+          <div className="flex gap-4 mb-4">
+            <button
+              onClick={() => setUseUrl(false)}
+              className={`px-4 py-2 rounded ${!useUrl ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+            >
+              Paste Text
+            </button>
+            <button
+              onClick={() => setUseUrl(true)}
+              className={`px-4 py-2 rounded ${useUrl ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+            >
+              Provide URL
+            </button>
+          </div>
+
+          {useUrl ? (
+            <>
+              <p className="text-sm text-gray-600 mb-4">
+                Enter the URL of the job posting (LinkedIn, Indeed, company careers page, etc.)
+              </p>
+              <input
+                type="url"
+                placeholder="https://www.linkedin.com/jobs/view/..."
+                value={jobUrl}
+                onChange={(e) => setJobUrl(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-base font-mono"
+              />
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-gray-600 mb-4">
+                Paste the job posting. Include required technologies.
+              </p>
+              <Textarea 
+                placeholder="Example:
 Senior Cloud Engineer with:
 • Python, Go, or NodeJS
 • AWS or Azure
 • Docker and Kubernetes
 • CI/CD with GitLab
 • Monitoring with Grafana"
-            value={jobDescription}
-            onChange={(e) => setJobDescription(e.target.value)}
-            rows={12}
-            className="text-base font-mono"
-          />
+                value={jobDescription}
+                onChange={(e) => setJobDescription(e.target.value)}
+                rows={12}
+                className="text-base font-mono"
+              />
+            </>
+          )}
         </Card>
 
         <Card className="p-8 mb-8 shadow-lg">
@@ -81,7 +121,7 @@ Skills:
 
         <Button 
           onClick={handleAnalyze}
-          disabled={loading || !jobDescription.trim() || !resumeText.trim()}
+          disabled={loading || (!jobDescription.trim() && !jobUrl.trim()) || !resumeText.trim()}
           size="lg"
           className="w-full text-lg py-6"
         >
