@@ -254,7 +254,7 @@ Skills: Python, SQL, Snowflake, PostgreSQL, Docker, Git"
                         <p className="text-sm text-gray-500">
                           {(uploadedFile.size / 1024).toFixed(1)} KB
                         </p>
-                        <Button variant="link" className="mt-2">
+                        <Button variant="outline" className="mt-2">
                           Click to change file
                         </Button>
                       </div>
