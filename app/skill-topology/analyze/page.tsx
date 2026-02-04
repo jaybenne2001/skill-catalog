@@ -32,7 +32,6 @@ export default function Analyze() {
 
       // Fetch job description from URL if needed
       if (jobMode === 'url' && jobUrl) {
-        // In production, you'd fetch the URL content
         finalJobText = jobText || 'Job description from URL'
       }
 
@@ -77,17 +76,26 @@ export default function Analyze() {
       }
 
       const results = await response.json()
+      
+      console.log('Analysis results:', results)
+
+      // Check if we have valid results
+      if (typeof results.keyword_match === 'undefined' || 
+          typeof results.capability_match === 'undefined') {
+        throw new Error('Invalid response from analysis API')
+      }
 
       // Navigate to results with query params
       const params = new URLSearchParams({
         keyword: results.keyword_match.toString(),
         capability: results.capability_match.toString(),
         delta: results.delta.toString(),
-        gaps: results.gaps.join(',')
+        gaps: (results.gaps || []).join(',')
       })
 
-      router.push(`/skill-topology/results?${params}`)
+      router.push(`/skill-topology/results?${params.toString()}`)
     } catch (err: any) {
+      console.error('Analysis error:', err)
       setError(err.message || 'Failed to analyze. Please try again.')
       setLoading(false)
     }
