@@ -1,4 +1,3 @@
-import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -17,54 +16,23 @@ export default function SkillTopology() {
           <p className="text-lg text-gray-500 mb-12 max-w-2xl mx-auto">
             Maps technologies to root capabilities to reveal transferable skills
           </p>
-        </div>
-      </section>
-
-      <section className="py-12">
-        <div className="container mx-auto px-4">
-          <div className="max-w-6xl mx-auto">
-            <Card className="p-8 shadow-2xl">
-              <Image 
-                src="/images/demo-sankey.png" 
-                alt="Skill Topology Visualization"
-                width={1200}
-                height={700}
-                className="rounded-lg w-full"
-                priority
-              />
-            </Card>
+          
+          <div className="flex gap-4 justify-center">
+            <Link href="/skill-topology/demo">
+              <Button size="lg" variant="outline" className="text-lg px-8">
+                View Demo Example
+              </Button>
+            </Link>
+            <Link href="/skill-topology/analyze">
+              <Button size="lg" className="text-lg px-8">
+                Analyze Your Skills →
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
 
-      <section className="py-12">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto grid grid-cols-3 gap-8">
-            <Card className="p-8 text-center bg-gray-50">
-              <div className="text-5xl font-bold text-gray-700 mb-3">42%</div>
-              <div className="text-sm text-gray-600">Keyword Match</div>
-            </Card>
-            <Card className="p-8 text-center bg-green-50 border-green-200">
-              <div className="text-5xl font-bold text-green-600 mb-3">82%</div>
-              <div className="text-sm text-gray-600">Capability Match</div>
-            </Card>
-            <Card className="p-8 text-center bg-blue-50 border-blue-200">
-              <div className="text-5xl font-bold text-blue-600 mb-3">+40</div>
-              <div className="text-sm text-gray-600">Point Difference</div>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-12 text-center">
-        <Link href="/skill-topology/analyze">
-          <Button size="lg" className="text-xl px-12 py-8">
-            Try the Demo →
-          </Button>
-        </Link>
-      </section>
-
-      <section className="py-20 bg-gray-50">
+      <section className="py-12 bg-gray-50">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl font-bold mb-12 text-center">Methodology</h2>
