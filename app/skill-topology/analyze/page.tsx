@@ -1,62 +1,94 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
 import { Card } from '@/components/ui/card'
+import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 export default function Analyze() {
-  const [jobDescription, setJobDescription] = useState('')
-  const [jobUrl, setJobUrl] = useState('')
-  const [jobFile, setJobFile] = useState<File | null>(null)
-  const [resumeText, setResumeText] = useState('')
-  const [resumeFile, setResumeFile] = useState<File | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [useUrl, setUseUrl] = useState(false)
-  const [useJobFile, setUseJobFile] = useState(false)
-  const [useResumeFile, setUseResumeFile] = useState(false)
   const router = useRouter()
-
-  const handleJobFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    
-    setJobFile(file)
-    
-    // Read file content
-    const text = await file.text()
-    setJobDescription(text)
-  }
-
-  const handleResumeFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    
-    setResumeFile(file)
-    
-    // Read file content
-    const text = await file.text()
-    setResumeText(text)
-  }
+  const [loading, setLoading] = useState(false)
+  const [jobMode, setJobMode] = useState<'text' | 'url'>('text')
+  const [resumeMode, setResumeMode] = useState<'text' | 'file' | 'linkedin'>('text')
+  
+  const [jobText, setJobText] = useState('')
+  const [jobUrl, setJobUrl] = useState('')
+  const [resumeText, setResumeText] = useState('')
+  const [linkedinUrl, setLinkedinUrl] = useState('')
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  
+  const [error, setError] = useState('')
 
   const handleAnalyze = async () => {
+    setError('')
     setLoading(true)
+
     try {
+      let finalJobText = jobText
+      let finalResumeText = resumeText
+
+      // Fetch job description from URL if needed
+      if (jobMode === 'url' && jobUrl) {
+        // In production, you'd fetch the URL content
+        finalJobText = jobText || 'Job description from URL'
+      }
+
+      // Handle resume input
+      if (resumeMode === 'linkedin' && linkedinUrl) {
+        const response = await fetch('/api/scrape-linkedin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: linkedinUrl })
+        })
+        
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || 'Failed to fetch LinkedIn profile')
+        }
+        
+        const data = await response.json()
+        finalResumeText = data.text
+      } else if (resumeMode === 'file' && uploadedFile) {
+        finalResumeText = await uploadedFile.text()
+      }
+
+      if (!finalJobText || !finalResumeText) {
+        setError('Please provide both job description and resume')
+        setLoading(false)
+        return
+      }
+
+      // Call analysis API
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          jobDescription: useUrl ? jobUrl : jobDescription,
-          resumeText,
-          isUrl: useUrl
+        body: JSON.stringify({
+          jobDescription: finalJobText,
+          resumeText: finalResumeText,
+          isUrl: false
         })
       })
-      if (!response.ok) throw new Error('Failed')
-      const data = await response.json()
-      router.push(`/skill-topology/results/${data.id}`)
-    } catch (error) {
-      alert('Analysis failed. Please try again.')
+
+      if (!response.ok) {
+        throw new Error('Analysis failed')
+      }
+
+      const results = await response.json()
+
+      // Navigate to results with query params
+      const params = new URLSearchParams({
+        keyword: results.keyword_match.toString(),
+        capability: results.capability_match.toString(),
+        delta: results.delta.toString(),
+        gaps: results.gaps.join(',')
+      })
+
+      router.push(`/skill-topology/results?${params}`)
+    } catch (err: any) {
+      setError(err.message || 'Failed to analyze. Please try again.')
       setLoading(false)
     }
   }
@@ -64,214 +96,188 @@ export default function Analyze() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 py-16">
       <div className="container mx-auto px-4 max-w-4xl">
-        <h1 className="text-5xl font-bold mb-4 text-center">Analyze Match Quality</h1>
-        <p className="text-xl text-gray-600 mb-12 text-center">
+        <div className="mb-8">
+          <Link href="/skill-topology">
+            <Button variant="outline">← Back</Button>
+          </Link>
+        </div>
+
+        <h1 className="text-4xl font-bold mb-4 text-center">Analyze Match Quality</h1>
+        <p className="text-center text-gray-600 mb-12">
           Compare keyword matching vs capability-based analysis
         </p>
-        
-        <Card className="p-8 mb-6 shadow-lg">
-          <h2 className="text-2xl font-bold mb-4">Job Description</h2>
-          
-          {/* Toggle between URL, Text, and File */}
-          <div className="flex gap-4 mb-4">
-            <button
-              onClick={() => {
-                setUseUrl(false)
-                setUseJobFile(false)
-              }}
-              className={`px-4 py-2 rounded ${!useUrl && !useJobFile ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-            >
-              Paste Text
-            </button>
-            <button
-              onClick={() => {
-                setUseUrl(true)
-                setUseJobFile(false)
-              }}
-              className={`px-4 py-2 rounded ${useUrl ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-            >
-              Provide URL
-            </button>
-            <button
-              onClick={() => {
-                setUseUrl(false)
-                setUseJobFile(true)
-              }}
-              className={`px-4 py-2 rounded ${useJobFile ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-            >
-              Upload File
-            </button>
-          </div>
 
-          {useJobFile ? (
-            <>
-              <p className="text-sm text-gray-600 mb-4">
-                Upload job description (.txt, .pdf, .docx, .md)
-              </p>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                <input
-                  type="file"
-                  accept=".txt,.pdf,.doc,.docx,.md"
-                  onChange={handleJobFileChange}
-                  className="hidden"
-                  id="job-file-input"
+        <div className="space-y-8">
+          {/* Job Description */}
+          <Card className="p-6">
+            <h2 className="text-2xl font-bold mb-4">Job Description</h2>
+            
+            <div className="flex gap-2 mb-4">
+              <Button
+                variant={jobMode === 'text' ? 'default' : 'outline'}
+                onClick={() => setJobMode('text')}
+              >
+                Paste Text
+              </Button>
+              <Button
+                variant={jobMode === 'url' ? 'default' : 'outline'}
+                onClick={() => setJobMode('url')}
+              >
+                Provide URL
+              </Button>
+            </div>
+
+            {jobMode === 'text' ? (
+              <>
+                <p className="text-sm text-gray-600 mb-2">
+                  Paste the job posting. Include required technologies.
+                </p>
+                <Textarea
+                  value={jobText}
+                  onChange={(e) => setJobText(e.target.value)}
+                  placeholder="Senior Data Engineer
+
+Requirements:
+- Python and SQL
+- AWS or Azure
+- Spark and Airflow
+- Docker/Kubernetes experience preferred"
+                  rows={12}
+                  className="font-mono text-sm"
                 />
-                <label htmlFor="job-file-input" className="cursor-pointer">
-                  {jobFile ? (
-                    <div>
-                      <div className="text-4xl mb-2">📄</div>
-                      <p className="text-lg font-medium">{jobFile.name}</p>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {(jobFile.size / 1024).toFixed(1)} KB
-                      </p>
-                      <p className="text-blue-600 text-sm mt-2">Click to change file</p>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="text-4xl mb-2">📁</div>
-                      <p className="text-lg font-medium">Click to upload</p>
-                      <p className="text-sm text-gray-500 mt-1">
-                        or drag and drop
-                      </p>
-                      <p className="text-xs text-gray-400 mt-2">
-                        TXT, PDF, DOC, DOCX, MD
-                      </p>
-                    </div>
-                  )}
-                </label>
-              </div>
-            </>
-          ) : useUrl ? (
-            <>
-              <p className="text-sm text-gray-600 mb-4">
-                Enter the URL of the job posting (LinkedIn, Indeed, company careers page, etc.)
-              </p>
-              <input
-                type="url"
-                placeholder="https://www.linkedin.com/jobs/view/..."
-                value={jobUrl}
-                onChange={(e) => setJobUrl(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-md text-base font-mono"
-              />
-            </>
-          ) : (
-            <>
-              <p className="text-sm text-gray-600 mb-4">
-                Paste the job posting. Include required technologies.
-              </p>
-              <Textarea 
-                placeholder="Example:
-Senior Cloud Engineer with:
-• Python, Go, or NodeJS
-• AWS or Azure
-• Docker and Kubernetes
-• CI/CD with GitLab
-• Monitoring with Grafana"
-                value={jobDescription}
-                onChange={(e) => setJobDescription(e.target.value)}
-                rows={12}
-                className="text-base font-mono"
-              />
-            </>
-          )}
-        </Card>
-
-        <Card className="p-8 mb-8 shadow-lg">
-          <h2 className="text-2xl font-bold mb-4">Resume</h2>
-          
-          {/* Toggle between Text and File */}
-          <div className="flex gap-4 mb-4">
-            <button
-              onClick={() => setUseResumeFile(false)}
-              className={`px-4 py-2 rounded ${!useResumeFile ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-            >
-              Paste Text
-            </button>
-            <button
-              onClick={() => setUseResumeFile(true)}
-              className={`px-4 py-2 rounded ${useResumeFile ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-            >
-              Upload File
-            </button>
-          </div>
-
-          {useResumeFile ? (
-            <>
-              <p className="text-sm text-gray-600 mb-4">
-                Upload resume (.txt, .pdf, .docx, .md)
-              </p>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                <input
-                  type="file"
-                  accept=".txt,.pdf,.doc,.docx,.md"
-                  onChange={handleResumeFileChange}
-                  className="hidden"
-                  id="resume-file-input"
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-gray-600 mb-2">
+                  Enter job posting URL (LinkedIn, Indeed, company careers page)
+                </p>
+                <Input
+                  value={jobUrl}
+                  onChange={(e) => setJobUrl(e.target.value)}
+                  placeholder="https://www.linkedin.com/jobs/view/..."
+                  className="mb-4"
                 />
-                <label htmlFor="resume-file-input" className="cursor-pointer">
-                  {resumeFile ? (
-                    <div>
-                      <div className="text-4xl mb-2">📄</div>
-                      <p className="text-lg font-medium">{resumeFile.name}</p>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {(resumeFile.size / 1024).toFixed(1)} KB
-                      </p>
-                      <p className="text-blue-600 text-sm mt-2">Click to change file</p>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="text-4xl mb-2">📁</div>
-                      <p className="text-lg font-medium">Click to upload</p>
-                      <p className="text-sm text-gray-500 mt-1">
-                        or drag and drop
-                      </p>
-                      <p className="text-xs text-gray-400 mt-2">
-                        TXT, PDF, DOC, DOCX, MD
-                      </p>
-                    </div>
-                  )}
-                </label>
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="text-sm text-gray-600 mb-4">
-                Paste resume text with years of experience per technology.
-              </p>
-              <Textarea 
-                placeholder="Example:
-Senior Data Engineer - 15 years experience
+                <Textarea
+                  value={jobText}
+                  onChange={(e) => setJobText(e.target.value)}
+                  placeholder="Or paste job text here..."
+                  rows={8}
+                  className="font-mono text-sm"
+                />
+              </>
+            )}
+          </Card>
 
-Skills:
-• Python (15y) - AI automation, ETL
-• Azure (4y, Certified)
-• SQL Server (12y)
-• Docker (3y)
-• Terraform (2y)"
-                value={resumeText}
-                onChange={(e) => setResumeText(e.target.value)}
-                rows={15}
-                className="text-base font-mono"
-              />
-            </>
-          )}
-        </Card>
+          {/* Resume */}
+          <Card className="p-6">
+            <h2 className="text-2xl font-bold mb-4">Resume</h2>
+            
+            <div className="flex gap-2 mb-4">
+              <Button
+                variant={resumeMode === 'text' ? 'default' : 'outline'}
+                onClick={() => setResumeMode('text')}
+              >
+                Paste Text
+              </Button>
+              <Button
+                variant={resumeMode === 'linkedin' ? 'default' : 'outline'}
+                onClick={() => setResumeMode('linkedin')}
+              >
+                LinkedIn URL
+              </Button>
+              <Button
+                variant={resumeMode === 'file' ? 'default' : 'outline'}
+                onClick={() => setResumeMode('file')}
+              >
+                Upload File
+              </Button>
+            </div>
 
-        <Button 
-          onClick={handleAnalyze}
-          disabled={loading || (!jobDescription.trim() && !jobUrl.trim()) || !resumeText.trim()}
-          size="lg"
-          className="w-full text-lg py-6"
-        >
-          {loading ? (
-            <span className="flex items-center gap-2">
-              <span className="animate-spin">⏳</span>
-              Analyzing... (30 seconds)
-            </span>
-          ) : (
-            'Analyze Match Quality →'
+            {resumeMode === 'text' && (
+              <>
+                <p className="text-sm text-gray-600 mb-2">
+                  Paste resume text or professional summary
+                </p>
+                <Textarea
+                  value={resumeText}
+                  onChange={(e) => setResumeText(e.target.value)}
+                  placeholder="Data Engineer with 10 years experience
+
+Skills: Python, SQL, Snowflake, PostgreSQL, Docker, Git"
+                  rows={12}
+                  className="font-mono text-sm"
+                />
+              </>
+            )}
+
+            {resumeMode === 'linkedin' && (
+              <>
+                <p className="text-sm text-gray-600 mb-2">
+                  Enter your LinkedIn profile URL (must be public)
+                </p>
+                <Input
+                  value={linkedinUrl}
+                  onChange={(e) => setLinkedinUrl(e.target.value)}
+                  placeholder="https://www.linkedin.com/in/your-profile"
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  Note: LinkedIn may block automated requests. If this fails, copy your profile text instead.
+                </p>
+              </>
+            )}
+
+            {resumeMode === 'file' && (
+              <>
+                <p className="text-sm text-gray-600 mb-2">
+                  Upload resume (.txt, .pdf, .docx, .md)
+                </p>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                  <input
+                    type="file"
+                    onChange={(e) => setUploadedFile(e.target.files?.[0] || null)}
+                    accept=".txt,.pdf,.doc,.docx,.md"
+                    className="hidden"
+                    id="resume-upload"
+                  />
+                  <label htmlFor="resume-upload" className="cursor-pointer">
+                    {uploadedFile ? (
+                      <div>
+                        <p className="text-lg font-medium">{uploadedFile.name}</p>
+                        <p className="text-sm text-gray-500">
+                          {(uploadedFile.size / 1024).toFixed(1)} KB
+                        </p>
+                        <Button variant="link" className="mt-2">
+                          Click to change file
+                        </Button>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="text-4xl mb-2">📄</div>
+                        <p className="text-gray-600">Click to upload resume</p>
+                      </div>
+                    )}
+                  </label>
+                </div>
+              </>
+            )}
+          </Card>
+
+          {error && (
+            <Card className="p-4 bg-red-50 border-red-200">
+              <p className="text-red-600">{error}</p>
+            </Card>
           )}
-        </Button>
+
+          {/* Analyze Button */}
+          <Button
+            onClick={handleAnalyze}
+            disabled={loading}
+            size="lg"
+            className="w-full text-lg"
+          >
+            {loading ? 'Analyzing...' : 'Analyze Match Quality →'}
+          </Button>
+        </div>
       </div>
     </div>
   )
