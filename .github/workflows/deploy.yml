@@ -1,0 +1,13 @@
+name: Deploy to AWS Amplify
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Trigger Amplify Build
+        run: echo "Amplify auto-deploys on push to main"
