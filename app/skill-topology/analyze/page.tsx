@@ -9,10 +9,36 @@ import { Card } from '@/components/ui/card'
 export default function Analyze() {
   const [jobDescription, setJobDescription] = useState('')
   const [jobUrl, setJobUrl] = useState('')
+  const [jobFile, setJobFile] = useState<File | null>(null)
   const [resumeText, setResumeText] = useState('')
+  const [resumeFile, setResumeFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [useUrl, setUseUrl] = useState(false)
+  const [useJobFile, setUseJobFile] = useState(false)
+  const [useResumeFile, setUseResumeFile] = useState(false)
   const router = useRouter()
+
+  const handleJobFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    
+    setJobFile(file)
+    
+    // Read file content
+    const text = await file.text()
+    setJobDescription(text)
+  }
+
+  const handleResumeFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    
+    setResumeFile(file)
+    
+    // Read file content
+    const text = await file.text()
+    setResumeText(text)
+  }
 
   const handleAnalyze = async () => {
     setLoading(true)
@@ -46,23 +72,76 @@ export default function Analyze() {
         <Card className="p-8 mb-6 shadow-lg">
           <h2 className="text-2xl font-bold mb-4">Job Description</h2>
           
-          {/* Toggle between URL and Text */}
+          {/* Toggle between URL, Text, and File */}
           <div className="flex gap-4 mb-4">
             <button
-              onClick={() => setUseUrl(false)}
-              className={`px-4 py-2 rounded ${!useUrl ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+              onClick={() => {
+                setUseUrl(false)
+                setUseJobFile(false)
+              }}
+              className={`px-4 py-2 rounded ${!useUrl && !useJobFile ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
             >
               Paste Text
             </button>
             <button
-              onClick={() => setUseUrl(true)}
+              onClick={() => {
+                setUseUrl(true)
+                setUseJobFile(false)
+              }}
               className={`px-4 py-2 rounded ${useUrl ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
             >
               Provide URL
             </button>
+            <button
+              onClick={() => {
+                setUseUrl(false)
+                setUseJobFile(true)
+              }}
+              className={`px-4 py-2 rounded ${useJobFile ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+            >
+              Upload File
+            </button>
           </div>
 
-          {useUrl ? (
+          {useJobFile ? (
+            <>
+              <p className="text-sm text-gray-600 mb-4">
+                Upload job description (.txt, .pdf, .docx, .md)
+              </p>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                <input
+                  type="file"
+                  accept=".txt,.pdf,.doc,.docx,.md"
+                  onChange={handleJobFileChange}
+                  className="hidden"
+                  id="job-file-input"
+                />
+                <label htmlFor="job-file-input" className="cursor-pointer">
+                  {jobFile ? (
+                    <div>
+                      <div className="text-4xl mb-2">📄</div>
+                      <p className="text-lg font-medium">{jobFile.name}</p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {(jobFile.size / 1024).toFixed(1)} KB
+                      </p>
+                      <p className="text-blue-600 text-sm mt-2">Click to change file</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="text-4xl mb-2">📁</div>
+                      <p className="text-lg font-medium">Click to upload</p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        or drag and drop
+                      </p>
+                      <p className="text-xs text-gray-400 mt-2">
+                        TXT, PDF, DOC, DOCX, MD
+                      </p>
+                    </div>
+                  )}
+                </label>
+              </div>
+            </>
+          ) : useUrl ? (
             <>
               <p className="text-sm text-gray-600 mb-4">
                 Enter the URL of the job posting (LinkedIn, Indeed, company careers page, etc.)
@@ -99,11 +178,68 @@ Senior Cloud Engineer with:
 
         <Card className="p-8 mb-8 shadow-lg">
           <h2 className="text-2xl font-bold mb-4">Resume</h2>
-          <p className="text-sm text-gray-600 mb-4">
-            Paste resume text with years of experience per technology.
-          </p>
-          <Textarea 
-            placeholder="Example:
+          
+          {/* Toggle between Text and File */}
+          <div className="flex gap-4 mb-4">
+            <button
+              onClick={() => setUseResumeFile(false)}
+              className={`px-4 py-2 rounded ${!useResumeFile ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+            >
+              Paste Text
+            </button>
+            <button
+              onClick={() => setUseResumeFile(true)}
+              className={`px-4 py-2 rounded ${useResumeFile ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+            >
+              Upload File
+            </button>
+          </div>
+
+          {useResumeFile ? (
+            <>
+              <p className="text-sm text-gray-600 mb-4">
+                Upload resume (.txt, .pdf, .docx, .md)
+              </p>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                <input
+                  type="file"
+                  accept=".txt,.pdf,.doc,.docx,.md"
+                  onChange={handleResumeFileChange}
+                  className="hidden"
+                  id="resume-file-input"
+                />
+                <label htmlFor="resume-file-input" className="cursor-pointer">
+                  {resumeFile ? (
+                    <div>
+                      <div className="text-4xl mb-2">📄</div>
+                      <p className="text-lg font-medium">{resumeFile.name}</p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {(resumeFile.size / 1024).toFixed(1)} KB
+                      </p>
+                      <p className="text-blue-600 text-sm mt-2">Click to change file</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="text-4xl mb-2">📁</div>
+                      <p className="text-lg font-medium">Click to upload</p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        or drag and drop
+                      </p>
+                      <p className="text-xs text-gray-400 mt-2">
+                        TXT, PDF, DOC, DOCX, MD
+                      </p>
+                    </div>
+                  )}
+                </label>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-gray-600 mb-4">
+                Paste resume text with years of experience per technology.
+              </p>
+              <Textarea 
+                placeholder="Example:
 Senior Data Engineer - 15 years experience
 
 Skills:
@@ -112,11 +248,13 @@ Skills:
 • SQL Server (12y)
 • Docker (3y)
 • Terraform (2y)"
-            value={resumeText}
-            onChange={(e) => setResumeText(e.target.value)}
-            rows={15}
-            className="text-base font-mono"
-          />
+                value={resumeText}
+                onChange={(e) => setResumeText(e.target.value)}
+                rows={15}
+                className="text-base font-mono"
+              />
+            </>
+          )}
         </Card>
 
         <Button 
