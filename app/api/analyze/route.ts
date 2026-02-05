@@ -80,25 +80,25 @@ export async function POST(request: NextRequest) {
     );
     
     const keywordMatch = jobSkills.length > 0 
-      ? Math.round((matchedSkills.length / jobSkills.length) * 100)
-      : 0;
+        ? Math.round((matchedSkills.length / jobSkills.length) * 100)
+        : 0;
 
-    return NextResponse.json({
-      success: true,
-      sankey_chart: lambdaData.sankey_chart,
-      radar_chart: lambdaData.radar_chart,
-      skill_mapping: lambdaData.skill_mapping,
-      keyword_match: keywordMatch,
-      capability_match: 85, // Placeholder
-      delta: 85 - keywordMatch,
-      gaps: jobSkills.filter(js => !matchedSkills.includes(js))
-    });
+      return NextResponse.json({
+        success: true,
+        sankey_chart: lambdaData.sankey_chart,
+        radar_chart: lambdaData.radar_chart,
+        skill_mapping: lambdaData.skill_mapping,
+        keyword_match: keywordMatch,
+        capability_match: 85, // Placeholder
+        delta: 85 - keywordMatch,
+        gaps: jobSkills.filter(js => !matchedSkills.includes(js))
+      });
 
-  } catch (error) {
-    console.error('Analysis error:', error);
-    return NextResponse.json(
-      { error: 'Failed to analyze skills' },
-      { status: 500 }
-    );
+    } catch (error) {
+      console.error('Analysis error:', error);
+      return NextResponse.json(
+        { error: 'Failed to analyze skills' },
+        { status: 500 }
+      );
+    }
   }
-}hea
