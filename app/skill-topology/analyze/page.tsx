@@ -89,28 +89,14 @@ export default function Analyze() {
       }
 
       const results = await response.json()
-      
-      console.log('Analysis results:', results)
 
-      // Check if we have valid results
-      if (typeof results.keyword_match === 'undefined' || 
-          typeof results.capability_match === 'undefined') {
-        throw new Error('Invalid response from analysis API')
-      }
+console.log('Analysis results:', results)
 
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('skillAnalysis', JSON.stringify(results))
-      }
+// Store full results in sessionStorage for the results page
+sessionStorage.setItem('skillAnalysis', JSON.stringify(results))
 
-      // Navigate to results with query params
-      const params = new URLSearchParams({
-        keyword: results.keyword_match.toString(),
-        capability: results.capability_match.toString(),
-        delta: results.delta.toString(),
-        gaps: (results.gaps || []).join(',')
-      })
-
-      router.push(`/skill-topology/results?${params.toString()}`)
+// Navigate to results
+router.push('/skill-topology/results')
     } catch (err: any) {
       console.error('Analysis error:', err)
       setError(err.message || 'Failed to analyze. Please try again.')
