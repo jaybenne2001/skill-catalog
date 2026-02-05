@@ -32,6 +32,11 @@ export async function POST(request: NextRequest) {
       radar: analysis.radar,
       job_techs: analysis.job_techs,
       resume_techs: analysis.resume_techs,
+      job_tech_counts: analysis.job_tech_counts,
+      resume_tech_counts: analysis.resume_tech_counts,
+      ats_priority: analysis.ats_priority,
+      transfer_map: analysis.transfer_map,
+      risk_flags: analysis.risk_flags,
       job_caps: analysis.job_caps,
       resume_caps: analysis.resume_caps
     });

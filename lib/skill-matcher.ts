@@ -126,6 +126,21 @@ export function extractTechs(text: string): string[] {
   return Array.from(found)
 }
 
+export function extractTechCounts(text: string): Record<string, number> {
+  const textUpper = text.toUpperCase()
+  const counts: Record<string, number> = {}
+
+  for (const tech of Object.keys(CAPABILITY_MAP)) {
+    const pattern = new RegExp(`\\b${tech.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g')
+    const matches = textUpper.match(pattern)
+    if (matches && matches.length > 0) {
+      counts[tech] = matches.length
+    }
+  }
+
+  return counts
+}
+
 export function getCapabilities(techs: string[]): Record<string, number> {
   const capabilities: Record<string, number> = {}
   
@@ -203,6 +218,8 @@ export function analyzeMatch(jobDescription: string, resumeText: string) {
   // Parse technologies from both texts
   const jobTechs = extractTechs(jobDescription)
   const resumeTechs = extractTechs(resumeText)
+  const jobTechCounts = extractTechCounts(jobDescription)
+  const resumeTechCounts = extractTechCounts(resumeText)
   
   // Calculate keyword match
   const jobSet = new Set(jobTechs)
@@ -227,6 +244,50 @@ export function analyzeMatch(jobDescription: string, resumeText: string) {
   // Find gaps
   const gaps = jobTechs.filter(tech => !resumeSet.has(tech))
 
+  const atsPriority = gaps.map(tech => {
+    const occurrences = jobTechCounts[tech] || 1
+    const capabilityWeight = CAPABILITY_MAP[tech]?.length || 1
+    return {
+      tech,
+      occurrences,
+      capability_weight: capabilityWeight,
+      score: occurrences * capabilityWeight
+    }
+  }).sort((a, b) => b.score - a.score)
+
+  const transferMap: Record<string, { resume_techs: string[]; shared_caps: string[] }> = {}
+  for (const missingTech of gaps) {
+    const missingCaps = CAPABILITY_MAP[missingTech] || []
+    const resumeMatches: { tech: string; shared: string[] }[] = []
+    for (const resumeTech of resumeTechs) {
+      const resumeCaps = CAPABILITY_MAP[resumeTech] || []
+      const shared = missingCaps.filter(cap => resumeCaps.includes(cap))
+      if (shared.length > 0) {
+        resumeMatches.push({ tech: resumeTech, shared })
+      }
+    }
+    resumeMatches.sort((a, b) => b.shared.length - a.shared.length)
+    transferMap[missingTech] = {
+      resume_techs: resumeMatches.map(match => match.tech).slice(0, 4),
+      shared_caps: missingCaps
+    }
+  }
+
+  const jobTextLower = jobDescription.toLowerCase()
+  const riskFlags: string[] = []
+  const maybePush = (flag: string, patterns: RegExp[]) => {
+    if (patterns.some(pattern => pattern.test(jobTextLower))) {
+      riskFlags.push(flag)
+    }
+  }
+
+  maybePush('Hard requirement language detected', [/\bmust have\b/, /\brequired\b/, /\brequirements?\b/])
+  maybePush('Certification requirement', [/\bcertification\b/, /\bcertified\b/])
+  maybePush('Security clearance or citizenship requirement', [/\bclearance\b/, /\bcitizenship\b/, /\bwork authorization\b/])
+  maybePush('Education requirement', [/\bdegree\b/, /\bb\.?s\.?\b/, /\bm\.?s\.?\b/, /\bph\.?d\.?\b/])
+  maybePush('Years of experience requirement', [/\b\d+\+?\s+years?\s+of\s+experience\b/])
+  maybePush('Location requirement', [/\bon\-?site\b/, /\bhybrid\b/, /\bremote\b/])
+
   return {
     keyword_match: keywordMatch,
     capability_match: capabilityMatch,
@@ -234,6 +295,11 @@ export function analyzeMatch(jobDescription: string, resumeText: string) {
     gaps,
     job_techs: jobTechs,
     resume_techs: resumeTechs,
+    job_tech_counts: jobTechCounts,
+    resume_tech_counts: resumeTechCounts,
+    ats_priority: atsPriority,
+    transfer_map: transferMap,
+    risk_flags: riskFlags,
     job_caps: jobCaps,
     resume_caps: resumeCaps,
     sankey: buildSankeyData(resumeTechs, jobTechs),
