@@ -3,8 +3,23 @@
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
+import { analyzeMatch } from '@/lib/skill-matcher'
+import { RadarChart, SankeyChart } from '@/components/skill-topology/charts'
 
 export default function DemoResults() {
+  const demoJobText = `Cloud AWS Engineer\n\nRequirements:\n- AWS or Azure\n- Docker or Kubernetes\n- Go or Python\n- PostgreSQL or MySQL\n- Terraform\n- Grafana\n- Data pipelines (Spark/Airflow)\n- Monitoring and CI/CD`
+
+  const demoResumeText = `Senior Data Engineer\n\nExperience:\n- Python, SQL, PostgreSQL, Snowflake\n- Azure, Docker, Git, Airflow\n- Spark, Kafka, ETL pipelines\n- Monitoring with Datadog\n- Infrastructure as code with Terraform`
+
+  const demoAnalysis = analyzeMatch(demoJobText, demoResumeText)
+  const keywordMatches = demoAnalysis.job_techs.filter(tech =>
+    demoAnalysis.resume_techs.includes(tech)
+  ).length
+  const totalJobTechs = demoAnalysis.job_techs.length
+  const demoGaps = demoAnalysis.gaps.length > 0
+    ? demoAnalysis.gaps
+    : ['AWS', 'Kubernetes', 'Go', 'Grafana', 'MySQL', 'Terraform']
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 py-16">
       <div className="container mx-auto px-4 max-w-6xl">
@@ -22,19 +37,22 @@ export default function DemoResults() {
         {/* Score Cards */}
         <div className="grid md:grid-cols-3 gap-6 mb-12">
           <Card className="p-8 text-center bg-red-50 border-red-200">
-            <div className="text-6xl font-bold text-red-600 mb-3">33%</div>
+            <div className="text-6xl font-bold text-red-600 mb-3">{demoAnalysis.keyword_match}%</div>
             <div className="text-sm text-gray-600">Traditional ATS</div>
             <div className="text-xs text-gray-500 mt-2">Keyword Match</div>
           </Card>
           
           <Card className="p-8 text-center bg-green-50 border-green-200">
-            <div className="text-6xl font-bold text-green-600 mb-3">85%</div>
+            <div className="text-6xl font-bold text-green-600 mb-3">{demoAnalysis.capability_match}%</div>
             <div className="text-sm text-gray-600">Skill Topology</div>
             <div className="text-xs text-gray-500 mt-2">Capability Match</div>
           </Card>
           
           <Card className="p-8 text-center bg-blue-50 border-blue-200">
-            <div className="text-6xl font-bold text-blue-600 mb-3">+52</div>
+            <div className="text-6xl font-bold text-blue-600 mb-3">
+              {demoAnalysis.delta >= 0 ? '+' : ''}
+              {demoAnalysis.delta}
+            </div>
             <div className="text-sm text-gray-600">Hidden Value</div>
             <div className="text-xs text-gray-500 mt-2">Percentage Points</div>
           </Card>
@@ -45,16 +63,16 @@ export default function DemoResults() {
           <h2 className="text-2xl font-bold mb-4">✅ What This Means</h2>
           <div className="space-y-4 text-gray-700">
             <p>
-              <strong>Traditional ATS (33%):</strong> Only 4 out of 12 required technologies appear on the resume.
+              <strong>Traditional ATS ({demoAnalysis.keyword_match}%):</strong> Only {keywordMatches} out of {totalJobTechs} required technologies appear on the resume.
               Most ATS systems would reject this candidate.
             </p>
             <p>
-              <strong>Skill Topology (85%):</strong> The candidate has experience in 7 out of 8 core capabilities 
+              <strong>Skill Topology ({demoAnalysis.capability_match}%):</strong> The candidate covers most core capabilities 
               required by the job. Their Azure experience transfers to AWS, PostgreSQL transfers to MySQL, etc.
             </p>
             <p>
-              <strong>Hidden Value (+52 points):</strong> This candidate is actually highly qualified but would be 
-              filtered out by 52 percentage points in traditional keyword matching.
+              <strong>Hidden Value ({demoAnalysis.delta >= 0 ? '+' : ''}{demoAnalysis.delta} points):</strong> This candidate is actually highly qualified but would be 
+              filtered out by {Math.abs(demoAnalysis.delta)} percentage points in traditional keyword matching.
             </p>
           </div>
         </Card>
@@ -66,20 +84,7 @@ export default function DemoResults() {
             <p className="text-gray-600 mb-6">
               Shows how resume technologies map through root capabilities to job requirements.
             </p>
-            <div className="bg-gradient-to-br from-blue-50 to-green-50 rounded-lg p-12 aspect-video flex items-center justify-center border-2 border-dashed border-gray-300">
-              <div className="text-center max-w-xl">
-                <div className="text-6xl mb-6">📊</div>
-                <p className="text-xl font-bold text-gray-700 mb-4">Sankey Flow Diagram</p>
-                <p className="text-gray-600 mb-2">14 Technologies → 8 Root Capabilities → 12 Job Requirements</p>
-                <div className="mt-6 p-4 bg-white rounded-lg">
-                  <p className="text-sm text-gray-600">
-                    <strong>Example insights:</strong> Python + SQL Server experience provides 
-                    "Scripting Logic" and "Tabular Reasoning" capabilities, which satisfy 
-                    requirements for Go, PostgreSQL, and data transformation tasks.
-                  </p>
-                </div>
-              </div>
-            </div>
+            <SankeyChart data={demoAnalysis.sankey} />
           </Card>
 
           <Card className="p-8">
@@ -87,32 +92,14 @@ export default function DemoResults() {
             <p className="text-gray-600 mb-6">
               Compares your capability strength across 8 core dimensions vs job requirements.
             </p>
-            <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg p-12 aspect-square max-w-2xl mx-auto flex items-center justify-center border-2 border-dashed border-gray-300">
-              <div className="text-center">
-                <div className="text-6xl mb-6">🎯</div>
-                <p className="text-xl font-bold text-gray-700 mb-4">Radar Chart Comparison</p>
-                <p className="text-gray-600 mb-4">85% Average Coverage Across 8 Capabilities</p>
-                <div className="mt-6 p-4 bg-white rounded-lg text-left">
-                  <p className="text-sm text-gray-600 mb-2"><strong>Strengths (≥90%):</strong></p>
-                  <ul className="text-sm text-gray-600 mb-4 ml-4">
-                    <li>• Scripting Logic: 100%</li>
-                    <li>• Tabular Reasoning: 100%</li>
-                    <li>• Cloud Storage: 95%</li>
-                  </ul>
-                  <p className="text-sm text-gray-600 mb-2"><strong>Gaps (&lt;60%):</strong></p>
-                  <ul className="text-sm text-gray-600 ml-4">
-                    <li>• Monitoring: 54%</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
+            <RadarChart data={demoAnalysis.radar} />
           </Card>
 
           <Card className="p-8 bg-orange-50 border-orange-200">
             <h2 className="text-2xl font-bold mb-4">Gap Analysis</h2>
             <p className="text-gray-600 mb-4">Technologies required by job but not explicitly on resume:</p>
             <div className="flex flex-wrap gap-3 mb-6">
-              {['AWS', 'Kubernetes', 'Go', 'Grafana', 'MySQL', 'Terraform'].map(gap => (
+              {demoGaps.map(gap => (
                 <span key={gap} className="px-4 py-2 bg-orange-200 text-orange-800 rounded-full text-sm font-medium">
                   {gap}
                 </span>
