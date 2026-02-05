@@ -1,4 +1,3 @@
-```typescript
 import { NextRequest, NextResponse } from 'next/server';
 
 const LAMBDA_ENDPOINT = 'https://1k8m52a28i.execute-api.us-east-1.amazonaws.com/default/skill-topology-analyzer';
@@ -103,4 +102,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-```
