@@ -32,7 +32,20 @@ export default function Analyze() {
 
       // Fetch job description from URL if needed
       if (jobMode === 'url' && jobUrl) {
-        finalJobText = jobText || 'Job description from URL'
+        const response = await fetch('/api/scrape-job', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: jobUrl })
+        })
+
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || 'Failed to fetch job description')
+        }
+
+        const data = await response.json()
+        const scrapedText = data.text || ''
+        finalJobText = [jobText, scrapedText].filter(Boolean).join('\n\n')
       }
 
       // Handle resume input
@@ -83,6 +96,10 @@ export default function Analyze() {
       if (typeof results.keyword_match === 'undefined' || 
           typeof results.capability_match === 'undefined') {
         throw new Error('Invalid response from analysis API')
+      }
+
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('skillAnalysis', JSON.stringify(results))
       }
 
       // Navigate to results with query params

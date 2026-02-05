@@ -1,13 +1,12 @@
 /**
- * Client-side skill matching logic
- * Same algorithm as Python backend but runs in browser
+ * Skill matching logic shared by client and server.
  */
 
-interface CapabilityMap {
+export interface CapabilityMap {
   [key: string]: string[]
 }
 
-const CAPABILITY_MAP: CapabilityMap = {
+export const CAPABILITY_MAP: CapabilityMap = {
   // Cloud & Infrastructure
   'AWS': ['Cloud Storage', 'Orchestration', 'Distributed Exec'],
   'AZURE': ['Cloud Storage', 'Orchestration', 'Distributed Exec'],
@@ -76,7 +75,44 @@ const CAPABILITY_MAP: CapabilityMap = {
   'SALESFORCE': ['Cloud Storage', 'Governance'],
 }
 
-function parseText(text: string): string[] {
+export const CAPABILITY_AXES = [
+  'Scripting Logic',
+  'Transform Logic',
+  'Tabular Reasoning',
+  'Cloud Storage',
+  'Distributed Exec',
+  'Orchestration',
+  'Monitoring',
+  'Governance',
+]
+
+export type SankeyNodeGroup = 'resume' | 'capability' | 'job'
+
+export interface SankeyNode {
+  id: string
+  label: string
+  group: SankeyNodeGroup
+  value: number
+}
+
+export interface SankeyLink {
+  source: string
+  target: string
+  value: number
+}
+
+export interface SankeyData {
+  nodes: SankeyNode[]
+  links: SankeyLink[]
+}
+
+export interface RadarData {
+  categories: string[]
+  resume: number[]
+  job: number[]
+}
+
+export function extractTechs(text: string): string[] {
   const textUpper = text.toUpperCase()
   const found: Set<string> = new Set()
   
@@ -90,7 +126,7 @@ function parseText(text: string): string[] {
   return Array.from(found)
 }
 
-function getCapabilities(techs: string[]): Record<string, number> {
+export function getCapabilities(techs: string[]): Record<string, number> {
   const capabilities: Record<string, number> = {}
   
   for (const tech of techs) {
@@ -104,10 +140,69 @@ function getCapabilities(techs: string[]): Record<string, number> {
   return capabilities
 }
 
+function sumValues(record: Record<string, number>, keys: string[]): number {
+  return keys.reduce((total, key) => total + (record[key] || 0), 0)
+}
+
+function buildSankeyData(resumeTechs: string[], jobTechs: string[]): SankeyData {
+  const links: SankeyLink[] = []
+  const values = new Map<string, number>()
+
+  const addValue = (id: string, value: number) => {
+    values.set(id, (values.get(id) || 0) + value)
+  }
+
+  for (const tech of resumeTechs) {
+    const caps = CAPABILITY_MAP[tech] || []
+    for (const cap of caps) {
+      const source = `resume:${tech}`
+      const target = `capability:${cap}`
+      links.push({ source, target, value: 1 })
+      addValue(source, 1)
+      addValue(target, 1)
+    }
+  }
+
+  for (const tech of jobTechs) {
+    const caps = CAPABILITY_MAP[tech] || []
+    for (const cap of caps) {
+      const source = `capability:${cap}`
+      const target = `job:${tech}`
+      links.push({ source, target, value: 1 })
+      addValue(source, 1)
+      addValue(target, 1)
+    }
+  }
+
+  const nodes: SankeyNode[] = Array.from(values.entries()).map(([id, value]) => {
+    const [groupRaw, label] = id.split(':')
+    const group = groupRaw as SankeyNodeGroup
+    return { id, label, group, value }
+  })
+
+  return { nodes, links }
+}
+
+function buildRadarData(jobCaps: Record<string, number>, resumeCaps: Record<string, number>): RadarData {
+  const categories = CAPABILITY_AXES
+  const resume: number[] = []
+  const job: number[] = []
+
+  for (const axis of categories) {
+    const resumeCount = resumeCaps[axis] || 0
+    const jobCount = jobCaps[axis] || 0
+    const maxCount = Math.max(1, resumeCount, jobCount)
+    resume.push(Math.round((resumeCount / maxCount) * 100))
+    job.push(Math.round((jobCount / maxCount) * 100))
+  }
+
+  return { categories, resume, job }
+}
+
 export function analyzeMatch(jobDescription: string, resumeText: string) {
   // Parse technologies from both texts
-  const jobTechs = parseText(jobDescription)
-  const resumeTechs = parseText(resumeText)
+  const jobTechs = extractTechs(jobDescription)
+  const resumeTechs = extractTechs(resumeText)
   
   // Calculate keyword match
   const jobSet = new Set(jobTechs)
@@ -119,17 +214,19 @@ export function analyzeMatch(jobDescription: string, resumeText: string) {
   const resumeCaps = getCapabilities(resumeTechs)
   const jobCaps = getCapabilities(jobTechs)
   
-  const resumeCapSet = new Set(Object.keys(resumeCaps))
-  const jobCapSet = new Set(Object.keys(jobCaps))
-  const capabilityMatches = Array.from(jobCapSet).filter(cap => resumeCapSet.has(cap)).length
-  const capabilityMatch = jobCapSet.size > 0 ? Math.round((capabilityMatches / jobCapSet.size) * 100) : 0
+  const totalRequired = sumValues(jobCaps, CAPABILITY_AXES)
+  const matched = CAPABILITY_AXES.reduce(
+    (total, axis) => total + Math.min(jobCaps[axis] || 0, resumeCaps[axis] || 0),
+    0
+  )
+  const capabilityMatch = totalRequired > 0 ? Math.round((matched / totalRequired) * 100) : 0
   
   // Calculate delta
   const delta = capabilityMatch - keywordMatch
   
   // Find gaps
   const gaps = jobTechs.filter(tech => !resumeSet.has(tech))
-  
+
   return {
     keyword_match: keywordMatch,
     capability_match: capabilityMatch,
@@ -137,7 +234,9 @@ export function analyzeMatch(jobDescription: string, resumeText: string) {
     gaps,
     job_techs: jobTechs,
     resume_techs: resumeTechs,
-    job_caps: Object.keys(jobCaps),
-    resume_caps: Object.keys(resumeCaps)
+    job_caps: jobCaps,
+    resume_caps: resumeCaps,
+    sankey: buildSankeyData(resumeTechs, jobTechs),
+    radar: buildRadarData(jobCaps, resumeCaps)
   }
 }
